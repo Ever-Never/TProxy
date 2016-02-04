@@ -1,4 +1,4 @@
-package sii.uniroma2.HonorineCevallos.TProxy;
+package sii.uniroma2.HonorineCevallos.TProxy.core;
 /*
 ** Copyright 2015, Mohamed Naufal
 **
@@ -26,10 +26,11 @@ import java.nio.channels.SocketChannel;
 import java.util.Random;
 import java.util.concurrent.ConcurrentLinkedQueue;
 
+import sii.uniroma2.HonorineCevallos.TProxy.utils.ByteBufferPool;
 import sii.uniroma2.HonorineCevallos.TProxy.PacketManager.Packet;
 import sii.uniroma2.HonorineCevallos.TProxy.PacketManager.Packet.TCPHeader;
-import sii.uniroma2.HonorineCevallos.TProxy.TCB.TCBStatus;
-import sii.uniroma2.HonorineCevallos.TProxy.exceptions.UnInizializedLogException;
+import sii.uniroma2.HonorineCevallos.TProxy.utils.TCB;
+import sii.uniroma2.HonorineCevallos.TProxy.utils.TCB.TCBStatus;
 import sii.uniroma2.HonorineCevallos.TProxy.logManaging.LogManager;
 
 public class TCPOutput implements Runnable
@@ -40,22 +41,20 @@ public class TCPOutput implements Runnable
     private ConcurrentLinkedQueue<Packet> inputQueue;
     private ConcurrentLinkedQueue<ByteBuffer> outputQueue;
     private Selector selector;
-    private LogManager logManager;
     private Random random = new Random();
 
+    /*Modified by Honorne and Cevallos:
+    * Logging support*/
+    private LogManager logManager;
 
     public TCPOutput(ConcurrentLinkedQueue<Packet> inputQueue, ConcurrentLinkedQueue<ByteBuffer> outputQueue,
-                     Selector selector, LocalVPNService vpnService)
+                     Selector selector, LocalVPNService vpnService, LogManager _logManager)
     {
         this.inputQueue = inputQueue;
         this.outputQueue = outputQueue;
         this.selector = selector;
         this.vpnService = vpnService;
-        try {
-            this.logManager = LogManager.getInstance();
-        } catch (UnInizializedLogException e) {
-            e.printStackTrace();
-        }
+        this.logManager = _logManager;
     }
 
     @Override

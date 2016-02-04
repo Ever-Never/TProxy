@@ -50,7 +50,8 @@ public class Packet
             this.isUDP = true;
         }
         this.backingBuffer = buffer;
-        this.payload = new AppLayerPacket(this.backingBuffer);
+        //Honorine & Cevallos: Layer 5 parsing:
+       // this.payload = new AppLayerPacket(this.backingBuffer);
     }
 
     @Override

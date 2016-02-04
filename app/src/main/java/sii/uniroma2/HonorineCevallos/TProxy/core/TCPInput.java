@@ -1,4 +1,4 @@
-package sii.uniroma2.HonorineCevallos.TProxy;
+package sii.uniroma2.HonorineCevallos.TProxy.core;
 
 /*
 ** Copyright 2015, Mohamed Naufal
@@ -26,7 +26,10 @@ import java.util.Iterator;
 import java.util.Set;
 import java.util.concurrent.ConcurrentLinkedQueue;
 
+import sii.uniroma2.HonorineCevallos.TProxy.utils.ByteBufferPool;
 import sii.uniroma2.HonorineCevallos.TProxy.PacketManager.Packet;
+import sii.uniroma2.HonorineCevallos.TProxy.utils.TCB;
+import sii.uniroma2.HonorineCevallos.TProxy.logManaging.LogManager;
 
 public class TCPInput implements Runnable
 {
@@ -36,11 +39,14 @@ public class TCPInput implements Runnable
 
     private ConcurrentLinkedQueue<ByteBuffer> outputQueue;
     private Selector selector;
+    private LogManager logManager;
 
-    public TCPInput(ConcurrentLinkedQueue<ByteBuffer> outputQueue, Selector selector)
+    public TCPInput(ConcurrentLinkedQueue<ByteBuffer> outputQueue, Selector selector, LogManager _logManager)
     {
         this.outputQueue = outputQueue;
         this.selector = selector;
+        this.logManager = _logManager;
+
     }
 
     @Override
@@ -95,6 +101,8 @@ public class TCPInput implements Runnable
     {
         TCB tcb = (TCB) key.attachment();
         Packet referencePacket = tcb.referencePacket;
+        logManager.writePacketInfo(referencePacket);
+
         try
         {
             //There must be passed some time since the finishConnect() call returned false last time we have invoked it on the  TCPOUtput Thread.
@@ -140,6 +148,7 @@ public class TCPInput implements Runnable
         synchronized (tcb)
         {
             Packet referencePacket = tcb.referencePacket;
+            logManager.writePacketInfo(referencePacket);
             SocketChannel inputChannel = (SocketChannel) key.channel();
             int readBytes;
             try

@@ -5,7 +5,7 @@ android {
     buildToolsVersion "23.0.1"
 
     defaultConfig {
-        applicationId "com.example.siigroup.naifserver"
+        applicationId "sii.Uniroma2.HonorineCevallos.TProxy"
         minSdkVersion 17
         targetSdkVersion 23
         versionCode 1

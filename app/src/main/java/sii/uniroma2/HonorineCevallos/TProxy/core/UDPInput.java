@@ -1,4 +1,4 @@
-package sii.uniroma2.HonorineCevallos.TProxy;
+package sii.uniroma2.HonorineCevallos.TProxy.core;
 
 /*
 ** Copyright 2015, Mohamed Naufal
@@ -26,7 +26,9 @@ import java.util.Iterator;
 import java.util.Set;
 import java.util.concurrent.ConcurrentLinkedQueue;
 
+import sii.uniroma2.HonorineCevallos.TProxy.utils.ByteBufferPool;
 import sii.uniroma2.HonorineCevallos.TProxy.PacketManager.Packet;
+import sii.uniroma2.HonorineCevallos.TProxy.logManaging.LogManager;
 
 public class UDPInput implements Runnable
 {
@@ -36,11 +38,13 @@ public class UDPInput implements Runnable
 
     private Selector selector;
     private ConcurrentLinkedQueue<ByteBuffer> outputQueue;
+    private LogManager logManager;
 
-    public UDPInput(ConcurrentLinkedQueue<ByteBuffer> outputQueue, Selector selector)
+    public UDPInput(ConcurrentLinkedQueue<ByteBuffer> outputQueue, Selector selector, LogManager _logManager)
     {
         this.outputQueue = outputQueue;
         this.selector = selector;
+        this.logManager = _logManager;
     }
 
     @Override
@@ -79,6 +83,7 @@ public class UDPInput implements Runnable
                         int readBytes = inputChannel.read(receiveBuffer);
 
                         Packet referencePacket = (Packet) key.attachment();
+                        logManager.writePacketInfo(referencePacket);
                         referencePacket.updateUDPBuffer(receiveBuffer, readBytes);
                         receiveBuffer.position(HEADER_SIZE + readBytes);
 

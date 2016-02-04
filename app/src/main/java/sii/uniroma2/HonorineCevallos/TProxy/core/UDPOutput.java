@@ -1,4 +1,4 @@
-package sii.uniroma2.HonorineCevallos.TProxy;
+package sii.uniroma2.HonorineCevallos.TProxy.core;
 
 /*
 ** Copyright 2015, Mohamed Naufal
@@ -29,10 +29,11 @@ import java.util.Iterator;
 import java.util.Map;
 import java.util.concurrent.ConcurrentLinkedQueue;
 
+import sii.uniroma2.HonorineCevallos.TProxy.utils.ByteBufferPool;
 import sii.uniroma2.HonorineCevallos.TProxy.Connectivity.AddressHelper;
+import sii.uniroma2.HonorineCevallos.TProxy.utils.LRUCache;
 import sii.uniroma2.HonorineCevallos.TProxy.PacketManager.Packet;
 import sii.uniroma2.HonorineCevallos.TProxy.exceptions.AddressHelperException;
-import sii.uniroma2.HonorineCevallos.TProxy.exceptions.UnInizializedLogException;
 import sii.uniroma2.HonorineCevallos.TProxy.logManaging.LogManager;
 
 public class UDPOutput implements Runnable
@@ -41,8 +42,8 @@ public class UDPOutput implements Runnable
 
     private LocalVPNService vpnService;
     private ConcurrentLinkedQueue<Packet> inputQueue;
-    private Selector selector;
     private LogManager logManager;
+    private Selector selector;
     private static final int MAX_CACHE_SIZE = 50;
     private LRUCache<String, DatagramChannel> channelCache =
             new LRUCache<>(MAX_CACHE_SIZE, new LRUCache.CleanupCallback<String, DatagramChannel>()
@@ -54,16 +55,13 @@ public class UDPOutput implements Runnable
                 }
             });
 
-    public UDPOutput(ConcurrentLinkedQueue<Packet> inputQueue, Selector selector, LocalVPNService vpnService)
+    public UDPOutput(ConcurrentLinkedQueue<Packet> inputQueue, Selector selector, LocalVPNService vpnService, LogManager _logManager)
     {
         this.inputQueue = inputQueue;
         this.selector = selector;
         this.vpnService = vpnService;
-        try {
-            this.logManager = LogManager.getInstance();
-        } catch (UnInizializedLogException e) {
-            e.printStackTrace();
-        }
+        this.logManager = _logManager;
+
     }
 
     @Override
@@ -82,8 +80,10 @@ public class UDPOutput implements Runnable
                 {
                     //I can do the poll because in VPNRunnable, inside the reception thread, i have done the offer().
                     currentPacket = inputQueue.poll();
-                    if (currentPacket != null)
+                    if (currentPacket != null){
+                        logManager.writePacketInfo(currentPacket);
                         break;
+                    }
                     Thread.sleep(10);
                 } while (!currentThread.isInterrupted());
 
@@ -136,7 +136,6 @@ public class UDPOutput implements Runnable
                     // For simplicity, we use the same thread for both reading and
                     // writing. Here we put the tunnel into non-blocking mode.
                     outputChannel.configureBlocking(false);
-                    logManager.writePacketInfo(currentPacket);
                     currentPacket.swapSourceAndDestination();
 
                     selector.wakeup();

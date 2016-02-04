@@ -1,17 +1,19 @@
-package sii.uniroma2.HonorineCevallos.TProxy;
+package sii.uniroma2.HonorineCevallos.TProxy.main;
 
 import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
 import android.net.VpnService;
-import android.support.v4.content.LocalBroadcastManager;
-import android.support.v7.app.ActionBarActivity;
 import android.os.Bundle;
+import android.support.v4.content.LocalBroadcastManager;
+import android.support.v7.app.AppCompatActivity;
 import android.view.View;
 import android.widget.Button;
 
-import sii.uniroma2.HonorineCevallos.TProxy.logManaging.LogManager;
+import sii.uniroma2.HonorineCevallos.TProxy.R;
+import sii.uniroma2.HonorineCevallos.TProxy.core.LocalVPNService;
+import sii.uniroma2.HonorineCevallos.TProxy.logManaging.LogFileInfo;
 
 /*
 ** Copyright 2015, Mohamed Naufal
@@ -28,12 +30,10 @@ import sii.uniroma2.HonorineCevallos.TProxy.logManaging.LogManager;
 ** See the License for the specific language governing permissions and
 ** limitations under the License.
 */
-public class LocalVPN extends ActionBarActivity
+public class LocalVPN extends AppCompatActivity
 {
     private static final int VPN_REQUEST_CODE = 0x0F;
-
     private boolean waitingForVPNStart;
-
     private BroadcastReceiver vpnStateReceiver = new BroadcastReceiver()
     {
         @Override
@@ -41,12 +41,13 @@ public class LocalVPN extends ActionBarActivity
         {
             if (LocalVPNService.BROADCAST_VPN_STATE.equals(intent.getAction()))
             {
+
                 if (intent.getBooleanExtra("running", false))
                     waitingForVPNStart = false;
             }
-
         }
     };
+    private LogFileInfo logFileInfo;
 
     /** Registers the broadcast receiver to be vpnStateReceiver
      * @param savedInstanceState
@@ -55,9 +56,18 @@ public class LocalVPN extends ActionBarActivity
     protected void onCreate(Bundle savedInstanceState)
     {
         super.onCreate(savedInstanceState);
-        LogManager.setInstance(this);
         setContentView(R.layout.activity_local_vpn);
+        settingViewComponents();
+        waitingForVPNStart = false;
+        LocalBroadcastManager.getInstance(this).registerReceiver(vpnStateReceiver,
+                new IntentFilter(LocalVPNService.BROADCAST_VPN_STATE));
+        this.logFileInfo = new LogFileInfo();
+    }
+
+    private void settingViewComponents(){
         final Button vpnButton = (Button)findViewById(R.id.vpn);
+        final Button gotoCapturesButton = (Button)findViewById(R.id.gotoCapturesbutton);
+        showCapturesButton(false);
         vpnButton.setOnClickListener(new View.OnClickListener()
         {
             @Override
@@ -66,9 +76,14 @@ public class LocalVPN extends ActionBarActivity
                 startVPN();
             }
         });
-        waitingForVPNStart = false;
-        LocalBroadcastManager.getInstance(this).registerReceiver(vpnStateReceiver,
-                new IntentFilter(LocalVPNService.BROADCAST_VPN_STATE));
+        gotoCapturesButton.setOnClickListener(new View.OnClickListener()
+        {
+            @Override
+            public void onClick(View v)
+            {
+                switchtoCaptures();
+            }
+        });
     }
 
     /**
@@ -88,6 +103,14 @@ public class LocalVPN extends ActionBarActivity
             onActivityResult(VPN_REQUEST_CODE, RESULT_OK, null);
     }
 
+    private void switchtoCaptures()
+    {
+        Intent intent = new Intent(this, CapturesActivity.class);
+        intent.putExtra("LOG_FILE_NAME", LogFileInfo.filename );
+        startActivity(intent);
+
+    }
+
     /** If requestCode is VPN_REQUEST_CODE and resultCode is RESULT_OK then set
      * waitingForVPNStart to true, and start the service LocalVPNService with this class context.
      * @param requestCode
@@ -100,8 +123,11 @@ public class LocalVPN extends ActionBarActivity
         if (requestCode == VPN_REQUEST_CODE && resultCode == RESULT_OK)
         {
             waitingForVPNStart = true;
+
             startService(new Intent(this, LocalVPNService.class));
-            enableButton(false);
+
+            enableVpnButton(false);
+            showCapturesButton(true);
         }
     }
 
@@ -111,13 +137,13 @@ public class LocalVPN extends ActionBarActivity
     @Override
     protected void onResume() {
         super.onResume();
-        enableButton(!waitingForVPNStart && !LocalVPNService.isRunning());
+        enableVpnButton(!waitingForVPNStart && !LocalVPNService.isRunning());
     }
 
     /**
      * @param enable
      */
-    private void enableButton(boolean enable)
+    private void enableVpnButton(boolean enable)
     {
         final Button vpnButton = (Button) findViewById(R.id.vpn);
         if (enable)
@@ -129,6 +155,20 @@ public class LocalVPN extends ActionBarActivity
         {
             vpnButton.setEnabled(false);
             vpnButton.setText(R.string.stop_vpn);
+        }
+    }
+
+    private void showCapturesButton(boolean enable)
+    {
+        final Button gotoCapturesButton = (Button) findViewById(R.id.gotoCapturesbutton);
+        if (enable)
+        {
+            gotoCapturesButton.setVisibility(View.VISIBLE);
+        }
+        else
+        {
+            gotoCapturesButton.setVisibility(View.GONE);
+
         }
     }
 }

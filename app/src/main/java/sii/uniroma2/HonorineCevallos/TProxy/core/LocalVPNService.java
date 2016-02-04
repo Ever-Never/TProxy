@@ -1,4 +1,4 @@
-package sii.uniroma2.HonorineCevallos.TProxy;
+package sii.uniroma2.HonorineCevallos.TProxy.core;
 
 /*
 ** Copyright 2015, Mohamed Naufal
@@ -35,8 +35,11 @@ import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
+import sii.uniroma2.HonorineCevallos.TProxy.utils.ByteBufferPool;
 import sii.uniroma2.HonorineCevallos.TProxy.Connectivity.AddressHelper;
 import sii.uniroma2.HonorineCevallos.TProxy.PacketManager.Packet;
+import sii.uniroma2.HonorineCevallos.TProxy.R;
+import sii.uniroma2.HonorineCevallos.TProxy.logManaging.LogManager;
 
 /**
  * Called when users accepts to start the VPN.
@@ -59,7 +62,8 @@ public class LocalVPNService extends VpnService
     private ConcurrentLinkedQueue<Packet> deviceToNetworkTCPQueue;
     private ConcurrentLinkedQueue<ByteBuffer> networkToDeviceQueue;
     private ExecutorService executorService;
-
+    private String logFileName;
+    private LogManager logmanager;
     private Selector udpSelector;
     private Selector tcpSelector;
 
@@ -71,7 +75,9 @@ public class LocalVPNService extends VpnService
         setupVPN();
         try
         {
+
             AddressHelper.setInstance(this);
+            logmanager = new LogManager(this.getApplicationContext());
             udpSelector = Selector.open();
             tcpSelector = Selector.open();
             deviceToNetworkUDPQueue = new ConcurrentLinkedQueue<>();
@@ -81,11 +87,10 @@ public class LocalVPNService extends VpnService
 
             //starts the threads:
             executorService = Executors.newFixedThreadPool(5);
-            executorService.submit(new UDPInput(networkToDeviceQueue, udpSelector));
-            executorService.submit(new UDPOutput(deviceToNetworkUDPQueue, udpSelector, this));
-            executorService.submit(new TCPInput(networkToDeviceQueue, tcpSelector));
-
-            executorService.submit(new TCPOutput(deviceToNetworkTCPQueue, networkToDeviceQueue, tcpSelector, this));
+            executorService.submit(new UDPInput(networkToDeviceQueue, udpSelector, logmanager));
+            executorService.submit(new UDPOutput(deviceToNetworkUDPQueue, udpSelector, this, logmanager));
+            executorService.submit(new TCPInput(networkToDeviceQueue, tcpSelector, logmanager));
+            executorService.submit(new TCPOutput(deviceToNetworkTCPQueue, networkToDeviceQueue, tcpSelector, this, logmanager));
             executorService.submit(new VPNRunnable(vpnInterface.getFileDescriptor(),
                     deviceToNetworkUDPQueue, deviceToNetworkTCPQueue, networkToDeviceQueue));
             LocalBroadcastManager.getInstance(this).sendBroadcast(new Intent(BROADCAST_VPN_STATE).putExtra("running", true));
@@ -231,6 +236,7 @@ public class LocalVPNService extends VpnService
                         dataSent = true;
                         bufferToNetwork.flip();
                         Packet packet = new Packet(bufferToNetwork);
+
                         if (packet.isUDP())
                         {
                             deviceToNetworkUDPQueue.offer(packet);
