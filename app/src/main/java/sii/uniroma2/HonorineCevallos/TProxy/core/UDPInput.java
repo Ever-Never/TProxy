@@ -83,7 +83,6 @@ public class UDPInput implements Runnable
                         int readBytes = inputChannel.read(receiveBuffer);
 
                         Packet referencePacket = (Packet) key.attachment();
-                        referencePacket.setOutgoing(false);
                         referencePacket.setIncomming(true);
                         logManager.writePacketInfo(referencePacket);
                         referencePacket.updateUDPBuffer(receiveBuffer, readBytes);

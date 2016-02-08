@@ -31,7 +31,7 @@ import java.util.concurrent.ConcurrentLinkedQueue;
 
 import sii.uniroma2.HonorineCevallos.TProxy.logManaging.GlobalAppState;
 import sii.uniroma2.HonorineCevallos.TProxy.utils.ByteBufferPool;
-import sii.uniroma2.HonorineCevallos.TProxy.Connectivity.AddressHelper;
+import sii.uniroma2.HonorineCevallos.TProxy.Connectivity.ConnectivityHelper;
 import sii.uniroma2.HonorineCevallos.TProxy.utils.LRUCache;
 import sii.uniroma2.HonorineCevallos.TProxy.PacketManager.Packet;
 import sii.uniroma2.HonorineCevallos.TProxy.exceptions.AddressHelperException;
@@ -82,7 +82,6 @@ public class UDPOutput implements Runnable
                     //I can do the poll because in VPNRunnable, inside the reception thread, i have done the offer().
                     currentPacket = inputQueue.poll();
                     if (currentPacket != null){
-                        currentPacket.setOutgoing(true);
                         currentPacket.setIncomming(false);
                         break;
                     }
@@ -114,7 +113,7 @@ public class UDPOutput implements Runnable
                     interface of the device.
                     * */
                     InetSocketAddress sa = null;
-                    AddressHelper ah = GlobalAppState.addressHelper;
+                    ConnectivityHelper ah = GlobalAppState.connectivityHelper;
                     InetAddress ia= null;
                     try {
                         ia = ah.getIPAddress();

@@ -7,7 +7,7 @@ import java.io.File;
 import java.text.SimpleDateFormat;
 import java.util.Date;
 
-import sii.uniroma2.HonorineCevallos.TProxy.Connectivity.AddressHelper;
+import sii.uniroma2.HonorineCevallos.TProxy.Connectivity.ConnectivityHelper;
 import sii.uniroma2.HonorineCevallos.TProxy.exceptions.NotWritableStorageException;
 
 /**
@@ -16,8 +16,9 @@ import sii.uniroma2.HonorineCevallos.TProxy.exceptions.NotWritableStorageExcepti
 public class GlobalAppState extends Application{
 
     public static Context appContext;
-    public static AddressHelper addressHelper;
+    public static ConnectivityHelper connectivityHelper;
     public static String logFilename;
+    public static long capturesCount = 0;
     private static SimpleDateFormat sdf;
     public static File logFile;
 
@@ -28,7 +29,7 @@ public class GlobalAppState extends Application{
 
    public static void setAppContext(Context ctx){
        appContext = ctx;
-       addressHelper = new AddressHelper(appContext);
+       connectivityHelper = new ConnectivityHelper(appContext);
        try {
            createLogFile();
        } catch (NotWritableStorageException e) {

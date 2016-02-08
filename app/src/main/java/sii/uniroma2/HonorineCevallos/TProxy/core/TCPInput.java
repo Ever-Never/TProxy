@@ -101,11 +101,11 @@ public class TCPInput implements Runnable
     {
         TCB tcb = (TCB) key.attachment();
         Packet referencePacket = tcb.referencePacket;
-        logManager.writePacketInfo(referencePacket);
 
         try
         {
-            //There must be passed some time since the finishConnect() call returned false last time we have invoked it on the  TCPOUtput Thread.
+            //There must be passed some time since the finishConnect()
+            // call returned false last time we have invoked it on the  TCPOUtput Thread.
             if (tcb.channel.finishConnect())
             {
                 keyIterator.remove();
@@ -118,9 +118,8 @@ public class TCPInput implements Runnable
                 referencePacket.updateTCPBuffer(responseBuffer, (byte) (Packet.TCPHeader.SYN | Packet.TCPHeader.ACK),
                         tcb.mySequenceNum, tcb.myAcknowledgementNum, 0);
 
-                referencePacket.setOutgoing(false);
                 referencePacket.setIncomming(true);
-
+                logManager.writePacketInfo(referencePacket);
                 outputQueue.offer(responseBuffer);
 
                 tcb.mySequenceNum++; // SYN counts as a byte

@@ -20,14 +20,14 @@ import sii.uniroma2.HonorineCevallos.TProxy.exceptions.ConnectivityManagerExcept
 /**
  * Created by Jesus on 15/12/2015.
  */
-public class AddressHelper {
+public class ConnectivityHelper {
 
     private InetAddress myLocalIpAdress;
     private ConnectivityManager connMgr ;
     private Context superContext;
-    private static AddressHelper singleton_Instance;
+    private static ConnectivityHelper singleton_Instance;
 
-    public AddressHelper(Context ctx){
+    public ConnectivityHelper(Context ctx){
         this.superContext = ctx;
         connMgr = (ConnectivityManager) superContext.getSystemService(superContext.CONNECTIVITY_SERVICE);
     }

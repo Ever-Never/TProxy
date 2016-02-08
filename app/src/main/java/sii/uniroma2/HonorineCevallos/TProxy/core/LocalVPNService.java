@@ -233,7 +233,7 @@ public class LocalVPNService extends VpnService
                         dataSent = true;
                         bufferToNetwork.flip();
                         Packet packet = new Packet(bufferToNetwork);
-
+                        packet.setIncomming(false);
                         if (packet.isUDP())
                         {
                             deviceToNetworkUDPQueue.offer(packet);

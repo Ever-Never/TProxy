@@ -50,7 +50,7 @@ public class PacketListAdapter extends ArrayAdapter<Message> {
             incommingMessage.setVisibility(View.GONE);
             tvbody.setGravity(Gravity.CENTER_VERTICAL | Gravity.RIGHT);
         }
-        tvbody.setText(packet.transportProtocol+"/n"+packet.Timestamp+"/n"+packet.connectivityType);
+        tvbody.setText(packet.transportProtocol+","+packet.Timestamp+","+packet.connectivityType);
         return convertView;
 
     }

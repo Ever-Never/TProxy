@@ -1,13 +1,12 @@
 package sii.uniroma2.HonorineCevallos.TProxy.main;
 
 import android.os.Bundle;
-import android.support.design.widget.FloatingActionButton;
-import android.support.design.widget.Snackbar;
 import android.support.v7.app.AppCompatActivity;
 import android.support.v7.widget.Toolbar;
-import android.view.View;
 import android.widget.ListView;
+import android.widget.TextView;
 
+import java.util.ArrayList;
 import java.util.List;
 
 import sii.uniroma2.HonorineCevallos.TProxy.R;
@@ -31,23 +30,17 @@ public class CapturesActivity extends AppCompatActivity {
         Toolbar toolbar = (Toolbar) findViewById(R.id.toolbar);
         setSupportActionBar(toolbar);
 
-        FloatingActionButton fab = (FloatingActionButton) findViewById(R.id.fab);
-        fab.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View view) {
-                Snackbar.make(view, "Replace with your own action", Snackbar.LENGTH_LONG)
-                        .setAction("Action", null).show();
-            }
-        });
 
-        packetsListView = (ListView) findViewById(R.id.CapturedPackets_listView);
+      //  packetsListView = (ListView) findViewById(R.id.CapturedPackets_listView);
+       // fillListView();
 
-        fillListView();
+        TextView helloTxt = (TextView)findViewById(R.id.LogtextView);
+        helloTxt.setText(logManager.readTxt());
     }
 
     private void fillListView(){
 
-        List<Message> packets = null;
+        List<Message> packets = new ArrayList<Message>();
         Message curr_packet;
         do{
             curr_packet = logManager.readPacketInfo();
@@ -56,7 +49,7 @@ public class CapturesActivity extends AppCompatActivity {
 
 
         PacketListAdapter itemsAdapter =
-                new PacketListAdapter(this , packets);
+                new PacketListAdapter(this, packets);
         packetsListView.setAdapter(itemsAdapter);
 
 

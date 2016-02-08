@@ -73,8 +73,6 @@ public class TCPOutput implements Runnable
                 {
                     currentPacket = inputQueue.poll();
                     if (currentPacket != null){
-                        currentPacket.setOutgoing(true);
-                        currentPacket.setIncomming(false);
                         break;
                     }
                     Thread.sleep(10);

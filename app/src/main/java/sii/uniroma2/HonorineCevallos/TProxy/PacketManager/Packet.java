@@ -39,7 +39,6 @@ public class Packet
 
     private boolean isTCP;
     private boolean isUDP;
-    private boolean isOutgoing;
     private boolean isIncomming;
 
     public Packet(ByteBuffer buffer) throws UnknownHostException {
@@ -82,17 +81,12 @@ public class Packet
         return isIncomming;
     }
 
-    public boolean isOutgoing() {
-        return isOutgoing;
-    }
 
     public void setIncomming(boolean incomming) {
         isIncomming = incomming;
     }
 
-    public void setOutgoing(boolean outgoing) {
-        isOutgoing = outgoing;
-    }
+
 
     public void swapSourceAndDestination()
     {
