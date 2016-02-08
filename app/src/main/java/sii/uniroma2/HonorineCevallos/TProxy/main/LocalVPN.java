@@ -13,7 +13,7 @@ import android.widget.Button;
 
 import sii.uniroma2.HonorineCevallos.TProxy.R;
 import sii.uniroma2.HonorineCevallos.TProxy.core.LocalVPNService;
-import sii.uniroma2.HonorineCevallos.TProxy.logManaging.LogFileInfo;
+import sii.uniroma2.HonorineCevallos.TProxy.logManaging.GlobalAppState;
 
 /*
 ** Copyright 2015, Mohamed Naufal
@@ -47,7 +47,6 @@ public class LocalVPN extends AppCompatActivity
             }
         }
     };
-    private LogFileInfo logFileInfo;
 
     /** Registers the broadcast receiver to be vpnStateReceiver
      * @param savedInstanceState
@@ -61,7 +60,7 @@ public class LocalVPN extends AppCompatActivity
         waitingForVPNStart = false;
         LocalBroadcastManager.getInstance(this).registerReceiver(vpnStateReceiver,
                 new IntentFilter(LocalVPNService.BROADCAST_VPN_STATE));
-        this.logFileInfo = new LogFileInfo();
+        GlobalAppState.setAppContext(this);
     }
 
     private void settingViewComponents(){
@@ -106,7 +105,7 @@ public class LocalVPN extends AppCompatActivity
     private void switchtoCaptures()
     {
         Intent intent = new Intent(this, CapturesActivity.class);
-        intent.putExtra("LOG_FILE_NAME", LogFileInfo.filename );
+        intent.putExtra("LOG_FILE_NAME", GlobalAppState.logFilename);
         startActivity(intent);
 
     }

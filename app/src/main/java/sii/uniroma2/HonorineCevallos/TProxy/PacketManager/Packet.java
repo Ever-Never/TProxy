@@ -39,6 +39,8 @@ public class Packet
 
     private boolean isTCP;
     private boolean isUDP;
+    private boolean isOutgoing;
+    private boolean isIncomming;
 
     public Packet(ByteBuffer buffer) throws UnknownHostException {
         this.ip4Header = new IP4Header(buffer);
@@ -74,6 +76,22 @@ public class Packet
     public boolean isUDP()
     {
         return isUDP;
+    }
+
+    public boolean isIncomming() {
+        return isIncomming;
+    }
+
+    public boolean isOutgoing() {
+        return isOutgoing;
+    }
+
+    public void setIncomming(boolean incomming) {
+        isIncomming = incomming;
+    }
+
+    public void setOutgoing(boolean outgoing) {
+        isOutgoing = outgoing;
     }
 
     public void swapSourceAndDestination()
@@ -287,6 +305,19 @@ public class Packet
             {
                 return this.protocolNumber;
             }
+
+            public String getName(){
+                if (this.equals(TCP) )
+                    return "TCP";
+                else if (this.equals(UDP))
+                    return "UDP";
+                else
+                    return "Other";
+            }
+        }
+
+        public IP4Header(){
+
         }
 
         private IP4Header(ByteBuffer buffer) throws UnknownHostException
@@ -360,6 +391,8 @@ public class Packet
             sb.append('}');
             return sb.toString();
         }
+
+
     }
 
     public static class TCPHeader

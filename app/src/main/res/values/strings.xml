@@ -5,5 +5,8 @@
     <string name="stop_vpn">Stop from Notification Bar</string>
     <string name="go_to_captures">Go to captures</string>
     <string name="title_activity_captures">CapturesActivity</string>
+    <string name="backtoMain">Back to Main Activity</string>
+    <string name="incomming_message">Incoming message</string>
+    <string name="outgoing_message">Outgoing Message</string>
 
 </resources>

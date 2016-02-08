@@ -7,15 +7,15 @@ import android.net.wifi.WifiManager;
 import android.text.format.Formatter;
 import android.widget.Toast;
 
-import sii.uniroma2.HonorineCevallos.TProxy.exceptions.AddressHelperException;
-import sii.uniroma2.HonorineCevallos.TProxy.exceptions.ConnectivityManagerException;
-
 import java.io.IOException;
 import java.net.InetAddress;
 import java.net.NetworkInterface;
 import java.net.SocketException;
 import java.net.UnknownHostException;
 import java.util.Enumeration;
+
+import sii.uniroma2.HonorineCevallos.TProxy.exceptions.AddressHelperException;
+import sii.uniroma2.HonorineCevallos.TProxy.exceptions.ConnectivityManagerException;
 
 /**
  * Created by Jesus on 15/12/2015.
@@ -27,26 +27,14 @@ public class AddressHelper {
     private Context superContext;
     private static AddressHelper singleton_Instance;
 
-    private AddressHelper(Context ctx ){
-        superContext = ctx;
+    public AddressHelper(Context ctx){
+        this.superContext = ctx;
         connMgr = (ConnectivityManager) superContext.getSystemService(superContext.CONNECTIVITY_SERVICE);
     }
 
-    public static AddressHelper setInstance(Context ctx){
-        if(singleton_Instance == null){
-            singleton_Instance = new AddressHelper(ctx);
-        }
-        return singleton_Instance;
-    }
 
-    public static AddressHelper getInstance() throws AddressHelperException {
-        if(singleton_Instance == null){
-            throw new AddressHelperException();
-        }
-        return singleton_Instance;
-    }
 
-    public String getStringConnType() throws ConnectivityManagerException {
+    public  String getStringConnType() throws ConnectivityManagerException {
         NetworkInfo activeNetwork = connMgr.getActiveNetworkInfo();
         if (activeNetwork != null) { // connected to the internet
             if (activeNetwork.getType() == ConnectivityManager.TYPE_WIFI) {
@@ -100,10 +88,6 @@ public class AddressHelper {
             return null;
 
         }
-
-
-
-
 
     private InetAddress getWifiPublicIpAddress() throws UnknownHostException {
         WifiManager wm = (WifiManager) superContext.getSystemService(superContext.WIFI_SERVICE);

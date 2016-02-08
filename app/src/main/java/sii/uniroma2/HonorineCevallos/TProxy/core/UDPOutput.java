@@ -29,6 +29,7 @@ import java.util.Iterator;
 import java.util.Map;
 import java.util.concurrent.ConcurrentLinkedQueue;
 
+import sii.uniroma2.HonorineCevallos.TProxy.logManaging.GlobalAppState;
 import sii.uniroma2.HonorineCevallos.TProxy.utils.ByteBufferPool;
 import sii.uniroma2.HonorineCevallos.TProxy.Connectivity.AddressHelper;
 import sii.uniroma2.HonorineCevallos.TProxy.utils.LRUCache;
@@ -81,7 +82,8 @@ public class UDPOutput implements Runnable
                     //I can do the poll because in VPNRunnable, inside the reception thread, i have done the offer().
                     currentPacket = inputQueue.poll();
                     if (currentPacket != null){
-                        logManager.writePacketInfo(currentPacket);
+                        currentPacket.setOutgoing(true);
+                        currentPacket.setIncomming(false);
                         break;
                     }
                     Thread.sleep(10);
@@ -101,6 +103,10 @@ public class UDPOutput implements Runnable
                 DatagramChannel outputChannel = channelCache.get(ipAndPort);
                 //If there is no such channel, then we have to open a new one.
                 if (outputChannel == null) {
+
+                    /*We write to the log only the packets appartaining to a new UDP session*/
+                    logManager.writePacketInfo(currentPacket);
+
                     outputChannel = DatagramChannel.open();
                     /* Workaround for bug 64819 ( https://code.google.com/p/android/issues/detail?id=64819)
                     The source address of the current channel must be the current real ip address,
@@ -108,13 +114,15 @@ public class UDPOutput implements Runnable
                     interface of the device.
                     * */
                     InetSocketAddress sa = null;
+                    AddressHelper ah = GlobalAppState.addressHelper;
+                    InetAddress ia= null;
                     try {
-                        AddressHelper ah = AddressHelper.getInstance();
-                        InetAddress ia= ah.getIPAddress();
-                        sa = new InetSocketAddress( ia , sourcePort);
+                        ia = ah.getIPAddress();
                     } catch (AddressHelperException e) {
                         e.printStackTrace();
                     }
+                    sa = new InetSocketAddress( ia , sourcePort);
+
                     try {
                             outputChannel.socket().setReuseAddress(true);
                             outputChannel.socket().bind(sa);

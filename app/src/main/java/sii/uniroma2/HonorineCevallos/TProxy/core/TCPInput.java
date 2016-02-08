@@ -117,6 +117,10 @@ public class TCPInput implements Runnable
                 //sending a fake SYN/ACK to the client app...
                 referencePacket.updateTCPBuffer(responseBuffer, (byte) (Packet.TCPHeader.SYN | Packet.TCPHeader.ACK),
                         tcb.mySequenceNum, tcb.myAcknowledgementNum, 0);
+
+                referencePacket.setOutgoing(false);
+                referencePacket.setIncomming(true);
+
                 outputQueue.offer(responseBuffer);
 
                 tcb.mySequenceNum++; // SYN counts as a byte

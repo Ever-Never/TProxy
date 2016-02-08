@@ -35,11 +35,11 @@ import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
-import sii.uniroma2.HonorineCevallos.TProxy.utils.ByteBufferPool;
-import sii.uniroma2.HonorineCevallos.TProxy.Connectivity.AddressHelper;
 import sii.uniroma2.HonorineCevallos.TProxy.PacketManager.Packet;
 import sii.uniroma2.HonorineCevallos.TProxy.R;
+import sii.uniroma2.HonorineCevallos.TProxy.logManaging.GlobalAppState;
 import sii.uniroma2.HonorineCevallos.TProxy.logManaging.LogManager;
+import sii.uniroma2.HonorineCevallos.TProxy.utils.ByteBufferPool;
 
 /**
  * Called when users accepts to start the VPN.
@@ -62,8 +62,6 @@ public class LocalVPNService extends VpnService
     private ConcurrentLinkedQueue<Packet> deviceToNetworkTCPQueue;
     private ConcurrentLinkedQueue<ByteBuffer> networkToDeviceQueue;
     private ExecutorService executorService;
-    private String logFileName;
-    private LogManager logmanager;
     private Selector udpSelector;
     private Selector tcpSelector;
 
@@ -76,8 +74,7 @@ public class LocalVPNService extends VpnService
         try
         {
 
-            AddressHelper.setInstance(this);
-            logmanager = new LogManager(this.getApplicationContext());
+            LogManager logmanager = new LogManager(GlobalAppState.appContext);
             udpSelector = Selector.open();
             tcpSelector = Selector.open();
             deviceToNetworkUDPQueue = new ConcurrentLinkedQueue<>();

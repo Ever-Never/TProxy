@@ -73,7 +73,8 @@ public class TCPOutput implements Runnable
                 {
                     currentPacket = inputQueue.poll();
                     if (currentPacket != null){
-                        logManager.writePacketInfo(currentPacket);
+                        currentPacket.setOutgoing(true);
+                        currentPacket.setIncomming(false);
                         break;
                     }
                     Thread.sleep(10);
@@ -144,6 +145,8 @@ public class TCPOutput implements Runnable
                                       Packet currentPacket, TCPHeader tcpHeader, ByteBuffer responseBuffer)
             throws IOException
     {
+        /*We write to the log only the packets appartainig to a new TCP Session*/
+        logManager.writePacketInfo(currentPacket);
         currentPacket.swapSourceAndDestination();
         //we want to start a connection to a new server
         if (tcpHeader.isSYN())
