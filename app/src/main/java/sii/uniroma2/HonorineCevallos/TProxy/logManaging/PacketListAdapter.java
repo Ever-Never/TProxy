@@ -1,12 +1,11 @@
 package sii.uniroma2.HonorineCevallos.TProxy.logManaging;
 
 import android.content.Context;
-import android.view.Gravity;
+import android.content.res.Resources;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.ArrayAdapter;
-import android.widget.ImageView;
 import android.widget.TextView;
 
 import java.util.List;
@@ -20,8 +19,8 @@ public class PacketListAdapter extends ArrayAdapter<Message> {
     private String fileName;
 
 
-    public PacketListAdapter(Context context, List<Message> packets) {
-        super(context, 0, packets);
+    public PacketListAdapter(Context context, int packet_Layout, List<Message> packets) {
+        super(context, packet_Layout, packets);
         this.fileName = GlobalAppState.logFilename;
     }
 
@@ -37,10 +36,11 @@ public class PacketListAdapter extends ArrayAdapter<Message> {
             convertView = LayoutInflater.from(getContext()).inflate(R.layout.closed_packet_layout , parent, false);
         }
 
-        ImageView incommingMessage = (ImageView)convertView.findViewById(R.id.ivIncommingMessage);
-        ImageView outgoingMessage = (ImageView)convertView.findViewById(R.id.ivOutgoingMessage);
+        //ImageView incommingMessage = (ImageView)convertView.findViewById(R.id.ivIncommingMessage);
+        //ImageView outgoingMessage = (ImageView)convertView.findViewById(R.id.ivOutgoingMessage);
         TextView tvbody = (TextView)convertView.findViewById(R.id.tvBodyMessage);
 
+        /*
         if (packet.isIncomming) {
             incommingMessage.setVisibility(View.VISIBLE);
             outgoingMessage.setVisibility(View.GONE);
@@ -49,8 +49,13 @@ public class PacketListAdapter extends ArrayAdapter<Message> {
             outgoingMessage.setVisibility(View.VISIBLE);
             incommingMessage.setVisibility(View.GONE);
             tvbody.setGravity(Gravity.CENTER_VERTICAL | Gravity.RIGHT);
-        }
-        tvbody.setText(packet.transportProtocol+","+packet.Timestamp+","+packet.connectivityType);
+        }*/
+
+        Resources res = GlobalAppState.appContext.getResources();
+        //    <string name="packet_info"> Proto: %1$s Timestamp: %2$s ConnMode: %3$s </string>
+        String text = String.format(res.getString(R.string.packet_info), packet.transportProtocol,
+                packet.Timestamp, packet.connectivityType, packet.destinationAddr);
+        tvbody.setText(text);
         return convertView;
 
     }

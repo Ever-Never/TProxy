@@ -8,5 +8,6 @@
     <string name="backtoMain">Back to Main Activity</string>
     <string name="incomming_message">Incoming message</string>
     <string name="outgoing_message">Outgoing Message</string>
+    <string name="packet_info"> Proto: %1$s Timestamp: %2$s  \n ConnMode: %3$s Dest_IP : %4$s </string>
 
 </resources>
