@@ -15,6 +15,7 @@ package sii.uniroma2.HonorineCevallos.TProxy.core;
 ** See the License for the specific language governing permissions and
 ** limitations under the License.
 */
+
 import android.util.Log;
 
 import java.io.IOException;
@@ -26,24 +27,23 @@ import java.util.Iterator;
 import java.util.Set;
 import java.util.concurrent.ConcurrentLinkedQueue;
 
-import sii.uniroma2.HonorineCevallos.TProxy.utils.ByteBufferPool;
-import sii.uniroma2.HonorineCevallos.TProxy.PacketManager.Packet;
-import sii.uniroma2.HonorineCevallos.TProxy.utils.TCB;
+import sii.uniroma2.HonorineCevallos.TProxy.logManaging.Packet;
 import sii.uniroma2.HonorineCevallos.TProxy.logManaging.LogManager;
+import sii.uniroma2.HonorineCevallos.TProxy.utils.ByteBufferPool;
+import sii.uniroma2.HonorineCevallos.TProxy.utils.TCB;
 
 public class TCPInput implements Runnable
 {
     private static final String TAG = TCPInput.class.getSimpleName();
-    //TODO add support for ipv6
     private static final int HEADER_SIZE = Packet.IP4_HEADER_SIZE + Packet.TCP_HEADER_SIZE;
 
-    private ConcurrentLinkedQueue<ByteBuffer> outputQueue;
+    private ConcurrentLinkedQueue<ByteBuffer> deliverToAppsQueue;
     private Selector selector;
     private LogManager logManager;
 
     public TCPInput(ConcurrentLinkedQueue<ByteBuffer> outputQueue, Selector selector, LogManager _logManager)
     {
-        this.outputQueue = outputQueue;
+        this.deliverToAppsQueue = outputQueue;
         this.selector = selector;
         this.logManager = _logManager;
 
@@ -59,24 +59,22 @@ public class TCPInput implements Runnable
             {
 
                 int readyChannels = selector.select();
-
                 if (readyChannels == 0) {
                     Thread.sleep(10);
                     continue;
                 }
-
                 Set<SelectionKey> keys = selector.selectedKeys();
                 Iterator<SelectionKey> keyIterator = keys.iterator();
-                /*Does this for all channels (all connections)*/
+
+
                 while (keyIterator.hasNext() && !Thread.interrupted())
                 {
                     SelectionKey key = keyIterator.next();
                     if (key.isValid())
                     {
-                        if (key.isConnectable())
-                            processConnect(key, keyIterator);
-                        else if (key.isReadable())
-                            processInput(key, keyIterator);
+                        /*Per le socket che non hanno finito di fare la connect*/
+                        if (key.isConnectable())  processConnect(key, keyIterator);
+                        else if (key.isReadable()) processInput(key, keyIterator);
                     }
                 }
             }
@@ -91,8 +89,57 @@ public class TCPInput implements Runnable
         }
     }
 
-    /**We call this method when we have a channel whose SelectionKey has been set to the operation Conect,
-     * this happens when we created a socket for connecting with the server and we did the connect, but this connect hasn't finished yet...
+
+    /** Implementazione del meccanismo SLIDING WINDOW DEL TCP.
+     * @param tcb
+     * @param referencePacket
+     * @return
+     */
+    private int getreadableBytes(TCB tcb, Packet referencePacket){
+
+        int mss = tcb.currentSendingMss;
+        int sentButNotAcked = (int) (tcb.mySequenceNum-tcb.theirAcknowledgementNum);
+        int readableBytes;
+
+        if(referencePacket.tcpHeader.hasOptions){
+            if(referencePacket.tcpHeader.optionsAndPadding.hasMss){
+                mss = referencePacket.tcpHeader.optionsAndPadding.mss;
+            }
+        }
+        readableBytes= mss-sentButNotAcked;
+        return readableBytes;
+    }
+
+    private  void manageSliddingWindow(TCB tcb){
+                 /*Di solito nei pacchetti SYN, il client ci invia il valore della MSS*/
+        if(tcb.referencePacket.tcpHeader.hasOptions){
+            if(tcb.referencePacket.tcpHeader.optionsAndPadding.hasMss){
+                tcb.currentSendingMss = tcb.referencePacket.tcpHeader.optionsAndPadding.mss;
+
+            }
+        }
+    }
+
+
+    private void processHandShake(SelectionKey key, Iterator<SelectionKey> keyIterator, TCB tcb, Packet referencePacket){
+        keyIterator.remove();
+        tcb.status = TCB.TCBStatus.SYN_RECEIVED;
+        manageSliddingWindow(tcb);
+
+        ByteBuffer responseBuffer = ByteBufferPool.acquire();
+        //sending a fake SYN/ACK to the client app...
+        referencePacket.updateTCPIPBuffer(responseBuffer, (byte) (Packet.TCPHeader.SYN | Packet.TCPHeader.ACK),
+                tcb.mySequenceNum, tcb.myAcknowledgementNum, 0);
+        referencePacket.setIncomming(true);
+        logManager.writePacketInfo(referencePacket);
+        deliverToAppsQueue.offer(responseBuffer);
+        tcb.mySequenceNum++; // SYN counts as a byte
+        key.interestOps(SelectionKey.OP_READ);
+    }
+    /**
+     * Invocchiamo questo metodo quando abbiamo un canale la cui operazione per cui è pronto è la connect()
+     * Questo succede quando creiamo un socket verso un server remoto e invocchiamo la connect() ma l'invocazione
+     * della funzione finishConnect() non ha avuto esito positivo.
      *
      * @param key
      * @param keyIterator
@@ -104,34 +151,16 @@ public class TCPInput implements Runnable
 
         try
         {
-            //There must be passed some time since the finishConnect()
-            // call returned false last time we have invoked it on the  TCPOUtput Thread.
-            if (tcb.channel.finishConnect())
-            {
-                keyIterator.remove();
-                tcb.status = TCB.TCBStatus.SYN_RECEIVED;
-
-                // TODO: Set MSS for receiving larger packets from the device
-
-                ByteBuffer responseBuffer = ByteBufferPool.acquire();
-                //sending a fake SYN/ACK to the client app...
-                referencePacket.updateTCPBuffer(responseBuffer, (byte) (Packet.TCPHeader.SYN | Packet.TCPHeader.ACK),
-                        tcb.mySequenceNum, tcb.myAcknowledgementNum, 0);
-
-                referencePacket.setIncomming(true);
-                logManager.writePacketInfo(referencePacket);
-                outputQueue.offer(responseBuffer);
-
-                tcb.mySequenceNum++; // SYN counts as a byte
-                key.interestOps(SelectionKey.OP_READ);
-            }
+            /*è passato del tempo dall'ultima invocazione della finischConnect,
+            * diamo un'altra opportunità alla connessione per stabilirsi*/
+            if (tcb.channel.finishConnect()) processHandShake(key, keyIterator, tcb, referencePacket);
         }
         catch (IOException e)
         {
             Log.e(TAG, "Connection error: " + tcb.ipAndPort, e);
             ByteBuffer responseBuffer = ByteBufferPool.acquire();
-            referencePacket.updateTCPBuffer(responseBuffer, (byte) Packet.TCPHeader.RST, 0, tcb.myAcknowledgementNum, 0);
-            outputQueue.offer(responseBuffer);
+            referencePacket.updateTCPIPBuffer(responseBuffer, (byte) Packet.TCPHeader.RST, 0, tcb.myAcknowledgementNum, 0);
+            deliverToAppsQueue.offer(responseBuffer);
             TCB.closeTCB(tcb);
         }
     }
@@ -143,15 +172,18 @@ public class TCPInput implements Runnable
     private void processInput(SelectionKey key, Iterator<SelectionKey> keyIterator)
     {
         keyIterator.remove();
-        ByteBuffer receiveBuffer = ByteBufferPool.acquire();
-        // Leave space for the header
-        receiveBuffer.position(HEADER_SIZE);
+        ByteBuffer receiveBuffer = null;
 
         TCB tcb = (TCB) key.attachment();
         synchronized (tcb)
         {
             Packet referencePacket = tcb.referencePacket;
-            logManager.writePacketInfo(referencePacket);
+
+            int readableBytes = getreadableBytes(tcb, referencePacket);
+            receiveBuffer = ByteBufferPool.acquire(readableBytes+ Packet.TCP_HEADER_SIZE+ Packet.IP4_HEADER_SIZE);
+            // Si lascia lo spazio per poi scrivere gli HEADER
+             receiveBuffer.position(HEADER_SIZE);
+
             SocketChannel inputChannel = (SocketChannel) key.channel();
             int readBytes;
             try
@@ -161,37 +193,43 @@ public class TCPInput implements Runnable
             catch (IOException e)
             {
                 Log.e(TAG, "Network read error: " + tcb.ipAndPort, e);
-                referencePacket.updateTCPBuffer(receiveBuffer, (byte) Packet.TCPHeader.RST, 0, tcb.myAcknowledgementNum, 0);
-                outputQueue.offer(receiveBuffer);
+                /*Niente grave solo risettiamo la connessione*/
+                referencePacket.updateTCPIPBuffer(receiveBuffer, (byte) Packet.TCPHeader.RST, 0, tcb.myAcknowledgementNum, 0);
+                deliverToAppsQueue.offer(receiveBuffer);
                 TCB.closeTCB(tcb);
                 return;
             }
 
             if (readBytes == -1)
             {
-                // End of stream, stop waiting until we push more data
+                /*Per il momento non mi interessa a questo canale selezinato. Si aspetta ad avere più informazione
+                da consegnare all'applicazione client.*/
                 key.interestOps(0);
                 tcb.waitingForNetworkData = false;
 
-                if (tcb.status != TCB.TCBStatus.CLOSE_WAIT)
+                if (tcb.status != TCB.TCBStatus.CLOSE_WAIT)/*se lo stato non è CLOSE_WAIT, si ritorna alla selezione dei canali*/
                 {
                     ByteBufferPool.release(receiveBuffer);
                     return;
                 }
 
+                /*Se lo stato è proprio CLOSE_WAIT, allora si invia
+                 la FIN al client e ci mettiamo nello stato LAST_ACK*/
                 tcb.status = TCB.TCBStatus.LAST_ACK;
-                referencePacket.updateTCPBuffer(receiveBuffer, (byte) Packet.TCPHeader.FIN, tcb.mySequenceNum, tcb.myAcknowledgementNum, 0);
+                referencePacket.updateTCPIPBuffer(receiveBuffer, (byte) Packet.TCPHeader.FIN, tcb.mySequenceNum, tcb.myAcknowledgementNum, 0);
                 tcb.mySequenceNum++; // FIN counts as a byte
             }
             else
-            {
-                // TODO: We should ideally be splitting segments by MTU/MSS, but this seems to work without
-                referencePacket.updateTCPBuffer(receiveBuffer, (byte) (Packet.TCPHeader.PSH | Packet.TCPHeader.ACK),
+            {/*Abbiamo dell'informazione da consegnare al client mettiamo il flag PSH perché se ci è stato consegnata
+            dalla socket una quantità x di dati, allora anche noi dobbiamo consegnarla al client, si noti comunque
+            che abbiamo già effettuato lo split d'accordo con la current mss impostata dal client*/
+                referencePacket.updateTCPIPBuffer(receiveBuffer, (byte) (Packet.TCPHeader.PSH | Packet.TCPHeader.ACK),
                         tcb.mySequenceNum, tcb.myAcknowledgementNum, readBytes);
                 tcb.mySequenceNum += readBytes; // Next sequence number
+                /*Importante: Siccome abbiamo costruito il pacchetto */
                 receiveBuffer.position(HEADER_SIZE + readBytes);
             }
         }
-        outputQueue.offer(receiveBuffer);
+        deliverToAppsQueue.offer(receiveBuffer);
     }
 }

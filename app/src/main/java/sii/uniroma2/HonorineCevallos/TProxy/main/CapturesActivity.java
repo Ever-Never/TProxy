@@ -14,7 +14,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 import sii.uniroma2.HonorineCevallos.TProxy.R;
-import sii.uniroma2.HonorineCevallos.TProxy.logManaging.GlobalAppState;
+import sii.uniroma2.HonorineCevallos.TProxy.utils.GlobalAppState;
 import sii.uniroma2.HonorineCevallos.TProxy.logManaging.LogManager;
 import sii.uniroma2.HonorineCevallos.TProxy.logManaging.Message;
 
@@ -93,6 +93,9 @@ public class CapturesActivity extends AppCompatActivity {
                     message.Timestamp = strArr[3];
                     message.connectivityType = strArr[4];
                     message.destinationAddr = strArr[5];
+                    message.sourceAddr = strArr[6];
+                    if(message.transportProtocol == "TCP")
+                        message.TCPSpecialPacket = strArr[7];
                     packets.add(message);
                 }
             }while(str != null);

@@ -1,14 +1,16 @@
-package sii.uniroma2.HonorineCevallos.TProxy.logManaging;
+package sii.uniroma2.HonorineCevallos.TProxy.utils;
 
 import android.app.Application;
 import android.content.Context;
 
+import java.io.Closeable;
 import java.io.File;
+import java.io.IOException;
 import java.text.SimpleDateFormat;
 import java.util.Date;
 
-import sii.uniroma2.HonorineCevallos.TProxy.Connectivity.ConnectivityHelper;
 import sii.uniroma2.HonorineCevallos.TProxy.exceptions.NotWritableStorageException;
+import sii.uniroma2.HonorineCevallos.TProxy.logManaging.LogManager;
 
 /**
  * Created by Jesus on 03/02/2016.
@@ -49,5 +51,20 @@ public class GlobalAppState extends Application{
 
     }
 
+
+    public static void closeResources(Closeable... resources)
+    {
+        for (Closeable resource : resources)
+        {
+            try
+            {
+                resource.close();
+            }
+            catch (IOException e)
+            {
+                // Ignore
+            }
+        }
+    }
 
 }

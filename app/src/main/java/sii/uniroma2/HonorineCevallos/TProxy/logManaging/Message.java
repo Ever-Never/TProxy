@@ -10,6 +10,7 @@ public class Message {
     public String connectivityType;
     public String Timestamp;
     public String destinationAddr;
+    public String sourceAddr;
     public String TCPSpecialPacket; /*FIN,SYN,RST,PSH,ACK,URG*/
 
     @Override
@@ -21,9 +22,13 @@ public class Message {
             str+= "(Outgoing) ";
         }
         str+= "\n T_Proto: "+this.transportProtocol;
+        if(this.transportProtocol.equals("TCP")){
+            str+= " "+TCPSpecialPacket;
+        }
         str+= "\n Conn_type: "+this.connectivityType;
         str+= "\n Timsstamp: "+this.Timestamp;
-        str+= "\n Dest_IP: "+this.destinationAddr;
+        str+= "\n Dest_Addr: "+this.destinationAddr;
+        str+= "\n Src_Addr: "+this.sourceAddr;
         return str;
     }
 

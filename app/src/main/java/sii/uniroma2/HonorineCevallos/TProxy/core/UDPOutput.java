@@ -29,11 +29,11 @@ import java.util.Iterator;
 import java.util.Map;
 import java.util.concurrent.ConcurrentLinkedQueue;
 
-import sii.uniroma2.HonorineCevallos.TProxy.logManaging.GlobalAppState;
+import sii.uniroma2.HonorineCevallos.TProxy.utils.GlobalAppState;
 import sii.uniroma2.HonorineCevallos.TProxy.utils.ByteBufferPool;
-import sii.uniroma2.HonorineCevallos.TProxy.Connectivity.ConnectivityHelper;
+import sii.uniroma2.HonorineCevallos.TProxy.utils.ConnectivityHelper;
 import sii.uniroma2.HonorineCevallos.TProxy.utils.LRUCache;
-import sii.uniroma2.HonorineCevallos.TProxy.PacketManager.Packet;
+import sii.uniroma2.HonorineCevallos.TProxy.logManaging.Packet;
 import sii.uniroma2.HonorineCevallos.TProxy.exceptions.AddressHelperException;
 import sii.uniroma2.HonorineCevallos.TProxy.logManaging.LogManager;
 
@@ -41,7 +41,7 @@ public class UDPOutput implements Runnable
 {
     private static final String TAG = UDPOutput.class.getSimpleName();
 
-    private LocalVPNService vpnService;
+    private LocalProxyServer vpnService;
     private ConcurrentLinkedQueue<Packet> inputQueue;
     private LogManager logManager;
     private Selector selector;
@@ -56,7 +56,7 @@ public class UDPOutput implements Runnable
                 }
             });
 
-    public UDPOutput(ConcurrentLinkedQueue<Packet> inputQueue, Selector selector, LocalVPNService vpnService, LogManager _logManager)
+    public UDPOutput(ConcurrentLinkedQueue<Packet> inputQueue, Selector selector, LocalProxyServer vpnService, LogManager _logManager)
     {
         this.inputQueue = inputQueue;
         this.selector = selector;
@@ -79,7 +79,7 @@ public class UDPOutput implements Runnable
                 // TODO: Block when not connected
                 do
                 {
-                    //I can do the poll because in VPNRunnable, inside the reception thread, i have done the offer().
+                    //I can do the poll because in TUNManager, inside the reception thread, i have done the offer().
                     currentPacket = inputQueue.poll();
                     if (currentPacket != null){
                         currentPacket.setIncomming(false);
@@ -95,7 +95,7 @@ public class UDPOutput implements Runnable
                 int destinationPort = currentPacket.udpHeader.destinationPort;
                 int sourcePort = currentPacket.udpHeader.sourcePort;
                 /*We are about to send the intercepted packet to the original destination
-                * First, we have intercepted and trapped it from the vpnInterface with the VPNRunnable Thread.
+                * First, we have intercepted and trapped it from the vpnInterface with the TUNManager Thread.
                */
                 String ipAndPort = destinationAddress.getHostAddress() + ":" + destinationPort + ":" + sourcePort;
                 //we try to get the correspondent channel from the channel cache.

@@ -1,4 +1,4 @@
-package sii.uniroma2.HonorineCevallos.TProxy.Connectivity;
+package sii.uniroma2.HonorineCevallos.TProxy.utils;
 
 import android.content.Context;
 import android.net.ConnectivityManager;

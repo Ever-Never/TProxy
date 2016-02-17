@@ -27,7 +27,7 @@ import java.util.Set;
 import java.util.concurrent.ConcurrentLinkedQueue;
 
 import sii.uniroma2.HonorineCevallos.TProxy.utils.ByteBufferPool;
-import sii.uniroma2.HonorineCevallos.TProxy.PacketManager.Packet;
+import sii.uniroma2.HonorineCevallos.TProxy.logManaging.Packet;
 import sii.uniroma2.HonorineCevallos.TProxy.logManaging.LogManager;
 
 public class UDPInput implements Runnable
@@ -84,8 +84,8 @@ public class UDPInput implements Runnable
 
                         Packet referencePacket = (Packet) key.attachment();
                         referencePacket.setIncomming(true);
-                        logManager.writePacketInfo(referencePacket);
                         referencePacket.updateUDPBuffer(receiveBuffer, readBytes);
+                       // logManager.writePacketInfo(referencePacket);
                         receiveBuffer.position(HEADER_SIZE + readBytes);
 
                         outputQueue.offer(receiveBuffer);

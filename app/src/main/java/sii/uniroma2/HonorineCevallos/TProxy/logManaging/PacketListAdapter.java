@@ -11,6 +11,7 @@ import android.widget.TextView;
 import java.util.List;
 
 import sii.uniroma2.HonorineCevallos.TProxy.R;
+import sii.uniroma2.HonorineCevallos.TProxy.utils.GlobalAppState;
 
 /**
  * Created by Jesus on 04/02/2016.
@@ -52,9 +53,7 @@ public class PacketListAdapter extends ArrayAdapter<Message> {
         }*/
 
         Resources res = GlobalAppState.appContext.getResources();
-        //    <string name="packet_info"> Proto: %1$s Timestamp: %2$s ConnMode: %3$s </string>
-        String text = String.format(res.getString(R.string.packet_info), packet.transportProtocol,
-                packet.Timestamp, packet.connectivityType, packet.destinationAddr);
+        String text = packet.toString();
         tvbody.setText(text);
         return convertView;
 

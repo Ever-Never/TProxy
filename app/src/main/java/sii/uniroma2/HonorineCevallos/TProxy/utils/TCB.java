@@ -21,7 +21,7 @@ import java.nio.channels.SocketChannel;
 import java.util.Iterator;
 import java.util.Map;
 
-import sii.uniroma2.HonorineCevallos.TProxy.PacketManager.Packet;
+import sii.uniroma2.HonorineCevallos.TProxy.logManaging.Packet;
 
 /**
  * Transmission Control Block
@@ -33,8 +33,9 @@ public class TCB
     public long mySequenceNum,theirSequenceNum;
     public long myAcknowledgementNum, theirAcknowledgementNum;
     public TCBStatus status;
+    public int currentSendingMss = 536; //VALORE DI DEFAULT (RFC (879)
 
-    // TCP has more states, but we need only these
+    // Questa ENUM fa riferimento allo stato del nostro Proxy.
     public enum TCBStatus
     {
         SYN_SENT,

@@ -12,8 +12,8 @@ import android.view.View;
 import android.widget.Button;
 
 import sii.uniroma2.HonorineCevallos.TProxy.R;
-import sii.uniroma2.HonorineCevallos.TProxy.core.LocalVPNService;
-import sii.uniroma2.HonorineCevallos.TProxy.logManaging.GlobalAppState;
+import sii.uniroma2.HonorineCevallos.TProxy.core.LocalProxyServer;
+import sii.uniroma2.HonorineCevallos.TProxy.utils.GlobalAppState;
 
 /*
 ** Copyright 2015, Mohamed Naufal
@@ -39,7 +39,7 @@ public class LocalVPN extends AppCompatActivity
         @Override
         public void onReceive(Context context, Intent intent)
         {
-            if (LocalVPNService.BROADCAST_VPN_STATE.equals(intent.getAction()))
+            if (LocalProxyServer.BROADCAST_VPN_STATE.equals(intent.getAction()))
             {
 
                 if (intent.getBooleanExtra("running", false))
@@ -59,7 +59,7 @@ public class LocalVPN extends AppCompatActivity
         settingViewComponents();
         waitingForVPNStart = false;
         LocalBroadcastManager.getInstance(this).registerReceiver(vpnStateReceiver,
-                new IntentFilter(LocalVPNService.BROADCAST_VPN_STATE));
+                new IntentFilter(LocalProxyServer.BROADCAST_VPN_STATE));
         GlobalAppState.setAppContext(this);
     }
 
@@ -111,7 +111,7 @@ public class LocalVPN extends AppCompatActivity
     }
 
     /** If requestCode is VPN_REQUEST_CODE and resultCode is RESULT_OK then set
-     * waitingForVPNStart to true, and start the service LocalVPNService with this class context.
+     * waitingForVPNStart to true, and start the service LocalProxyServer with this class context.
      * @param requestCode
      * @param resultCode
      * @param data
@@ -123,7 +123,7 @@ public class LocalVPN extends AppCompatActivity
         {
             waitingForVPNStart = true;
 
-            startService(new Intent(this, LocalVPNService.class));
+            startService(new Intent(this, LocalProxyServer.class));
 
             enableVpnButton(false);
             showCapturesButton(true);
@@ -136,7 +136,7 @@ public class LocalVPN extends AppCompatActivity
     @Override
     protected void onResume() {
         super.onResume();
-        enableVpnButton(!waitingForVPNStart && !LocalVPNService.isRunning());
+        enableVpnButton(!waitingForVPNStart && !LocalProxyServer.isRunning());
     }
 
     /**

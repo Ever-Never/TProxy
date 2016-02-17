@@ -20,14 +20,25 @@ import java.util.concurrent.ConcurrentLinkedQueue;
 
 public class ByteBufferPool
 {
-    private static final int BUFFER_SIZE = 16384; // XXX: Is this ideal?
+    /*TODO: si dovrebbe esperimentare di più per scoprire il valore ideale di MSS del proxy
+     * In tale esperimentazione bisogna tener conto sia dei problemi riguardanti la comunicazione
+     * proxy -> App, sia i problemi ricguardanti la comunicazione proxy -> Remote Server*/
+    private static final int PROXY_MSS = 16384;
     private static ConcurrentLinkedQueue<ByteBuffer> pool = new ConcurrentLinkedQueue<>();
 
     public static ByteBuffer acquire()
     {
         ByteBuffer buffer = pool.poll();
         if (buffer == null)
-            buffer = ByteBuffer.allocateDirect(BUFFER_SIZE); // Using DirectBuffer for zero-copy
+            buffer = ByteBuffer.allocateDirect(PROXY_MSS); // Using DirectBuffer for zero-copy
+        return buffer;
+    }
+
+    public static ByteBuffer acquire(int bufferSize)
+    {
+        ByteBuffer buffer = pool.poll();
+        if (buffer == null)
+            buffer = ByteBuffer.allocateDirect(bufferSize); // Using DirectBuffer for zero-copy
         return buffer;
     }
 
