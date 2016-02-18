@@ -44,13 +44,13 @@ import sii.uniroma2.HonorineCevallos.TProxy.utils.ByteBufferPool;
 /**
  * Called when users accepts to start the VPN.
  */
-public class LocalVPNService extends VpnService
+public class LocalProxyServer extends VpnService
 {
-    private static final String TAG = LocalVPNService.class.getSimpleName();
+    private static final String TAG = LocalProxyServer.class.getSimpleName();
     private static final String VPN_ROUTE = "0.0.0.0"; // Intercept everything
     private static final String VPN_ADDRESS = "192.168.0.1"; // Only IPv4 support for now
 
-    public static final String BROADCAST_VPN_STATE = "uniroma2.sii.proxyitm.VPN_STATE";
+    public static final String BROADCAST_VPN_STATE = "uniroma2.sii.LocalTProxy.VPN_STATE";
 
     private static boolean isRunning = false;
 
@@ -88,37 +88,39 @@ public class LocalVPNService extends VpnService
             executorService.submit(new UDPOutput(deviceToNetworkUDPQueue, udpSelector, this, logmanager));
             executorService.submit(new TCPInput(networkToDeviceQueue, tcpSelector, logmanager));
             executorService.submit(new TCPOutput(deviceToNetworkTCPQueue, networkToDeviceQueue, tcpSelector, this, logmanager));
-            executorService.submit(new VPNRunnable(vpnInterface.getFileDescriptor(),
+            executorService.submit(new TUNManager(vpnInterface.getFileDescriptor(),
                     deviceToNetworkUDPQueue, deviceToNetworkTCPQueue, networkToDeviceQueue));
             LocalBroadcastManager.getInstance(this).sendBroadcast(new Intent(BROADCAST_VPN_STATE).putExtra("running", true));
             Log.i(TAG, "Started");
         }
         catch (IOException e)
         {
-            // TODO: Here and elsewhere, we should explicitly notify the user of any errors
-            // and suggest that they stop the service, since we can't do it ourselves
+
             Log.e(TAG, "Error starting service", e);
             cleanup();
         }
     }
 
     /**
-     * Invoked from onCreate.
-     * Adds the address VPN_ADDRESS to the VPN interface
+     * Invocata dalla fnuzinoe Oncreate()
+     * Crea l'interfaccia TUN e aggiunge la routa nella routing table.
+     * Si usa a classe Builder per ottenere un File Descriptor della
+     la TUN interface. L'indirizzo IP, il DNS, e la tablle adi routing possono essere
+     configurati con il Builder. Dobbiamo assicurarci che l'invocazione del metodo
+     addRoute sia effettuata con corretteza, date che da questo dipende
+     quali pacchetti verrano reindirizzati verso la TUN.
      */
     private void setupVPN()
     {
         if (vpnInterface == null)
         {
             Builder builder = new Builder();
-            /*Using a Builder to obtain an interface (FileDescription) for the TUN.
-             The ip address, dns, and route table can be configured via the Builder.
-             We must make sure the addRoute is properly called, as route table determinants
-             which packet will be routed to the TUN.
-            * */
+
             builder.addAddress(VPN_ADDRESS, 24);
             builder.addRoute(VPN_ROUTE, 0);
-            vpnInterface = builder.setSession(getString(R.string.app_name)).setConfigureIntent(pendingIntent).establish();
+            builder.setSession(getString(R.string.app_name));
+            builder.setConfigureIntent(pendingIntent);
+            vpnInterface = builder.establish();
         }
     }
 
@@ -152,7 +154,6 @@ public class LocalVPNService extends VpnService
         closeResources(udpSelector, tcpSelector, vpnInterface);
     }
 
-    // TODO: Move this to a "utils" class for reuse
     private static void closeResources(Closeable... resources)
     {
         for (Closeable resource : resources)
@@ -168,9 +169,19 @@ public class LocalVPNService extends VpnService
         }
     }
 
-    private static class VPNRunnable implements Runnable
+    /**
+     *  Thread gestore dell'interfaccia TUN.
+     *  Si incarica di gestire tutta l’informazione che viene dirottata
+     *  verso l’interfaccia TUN, cioè tutta l’informazione che le applicazioni
+     *  inviano verso la rete.
+     *  Inoltre questo thread, nel suo main loop, riceve i pacchetti
+     *  che li arrivano dalle socket protette che create che costituiscono
+     *  i diversi tunnel verso la rete internet e inoltra queste informazioni
+     *  alle applicazioni attraverso la medesima interfaccia TUN.
+     */
+    private static class TUNManager implements Runnable
     {
-        private static final String TAG = VPNRunnable.class.getSimpleName();
+        private static final String TAG = TUNManager.class.getSimpleName();
 
         private FileDescriptor vpnFileDescriptor;
 
@@ -178,10 +189,10 @@ public class LocalVPNService extends VpnService
         private ConcurrentLinkedQueue<Packet> deviceToNetworkTCPQueue;
         private ConcurrentLinkedQueue<ByteBuffer> networkToDeviceQueue;
 
-        public VPNRunnable(FileDescriptor vpnFileDescriptor,
-                           ConcurrentLinkedQueue<Packet> deviceToNetworkUDPQueue,
-                           ConcurrentLinkedQueue<Packet> deviceToNetworkTCPQueue,
-                           ConcurrentLinkedQueue<ByteBuffer> networkToDeviceQueue)
+        public TUNManager(FileDescriptor vpnFileDescriptor,
+                          ConcurrentLinkedQueue<Packet> deviceToNetworkUDPQueue,
+                          ConcurrentLinkedQueue<Packet> deviceToNetworkTCPQueue,
+                          ConcurrentLinkedQueue<ByteBuffer> networkToDeviceQueue)
         {
             this.vpnFileDescriptor = vpnFileDescriptor;
             this.deviceToNetworkUDPQueue = deviceToNetworkUDPQueue;
@@ -194,26 +205,13 @@ public class LocalVPNService extends VpnService
         {
             Log.i(TAG, "Started");
 
-            /*Packets to be sent are queued in this input stream.
-            * UDPOutput and TCPOutput will take care of them
-            * Network Activity -> VpnInterface (AUTOMATICALLY)
-            * VpnInterface -> vpnInput (This thread does it by calling offer() )
-            * vpnInput -> outputChannel -> Remote Server (UCP and TCP Output threads do that) */
+             /*I pacchetti inviati dalle App vengono sccodati in questo stream */
             FileChannel vpnInput = new FileInputStream(vpnFileDescriptor).getChannel();
 
-            /*Packets received need to be written to this output stream
-            This thread writes them on it, but then UDPInput and TCPInput will
-            take care of them.
-            Network Activity <- TUN <- out <- tunnel <- Remote Server
-            * */
+            /*I pacchetti che si vuole consegnare alle app debbono venir accodati su questo stream*/
             FileChannel vpnOutput = new FileOutputStream(vpnFileDescriptor).getChannel();
 
-            /* reception (reading from NetworktoDeviceQueue and writing on
-            vpnOutput)
 
-            and sending (reading from vpnInput and forward to the respective
-            devicetoNetworkQueues) loop.
-            * */
             try
             {
                 ByteBuffer bufferToNetwork = null;
@@ -226,7 +224,6 @@ public class LocalVPNService extends VpnService
                     else
                         bufferToNetwork.clear();
 
-                    // TODO: Block when not connected
                     int readBytes = vpnInput.read(bufferToNetwork);
                     if (readBytes > 0)
                     {
@@ -272,8 +269,6 @@ public class LocalVPNService extends VpnService
                         dataReceived = false;
                     }
 
-                    // TODO: Sleep-looping is not very battery-friendly, consider blocking instead
-                    // Confirm if throughput with ConcurrentQueue is really higher compared to BlockingQueue
                     if (!dataSent && !dataReceived)
                         Thread.sleep(10);
                 }

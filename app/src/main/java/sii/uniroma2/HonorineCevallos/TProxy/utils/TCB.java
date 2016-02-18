@@ -34,7 +34,9 @@ public class TCB
     public long myAcknowledgementNum, theirAcknowledgementNum;
     public TCBStatus status;
 
-    // TCP has more states, but we need only these
+    public int currentSendingMss = 536; //VALORE DI DEFAULT (piuttosto basso)(RFC (879)
+
+    //COme spiegato nella relazione, in teoria bastano questi stati per la fsm del nostro server TCP.
     public enum TCBStatus
     {
         SYN_SENT,

@@ -27,7 +27,7 @@
         </activity>
 
         <service
-            android:name=".core.LocalVPNService"
+            android:name=".core.LocalProxyServer"
             android:enabled="true"
             android:exported="true"
             android:permission="android.permission.BIND_VPN_SERVICE">

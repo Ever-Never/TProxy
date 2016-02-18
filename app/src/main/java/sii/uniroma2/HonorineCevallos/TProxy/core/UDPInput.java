@@ -33,7 +33,6 @@ import sii.uniroma2.HonorineCevallos.TProxy.logManaging.LogManager;
 public class UDPInput implements Runnable
 {
     private static final String TAG = UDPInput.class.getSimpleName();
-    //TODO ipv6
     private static final int HEADER_SIZE = Packet.IP4_HEADER_SIZE + Packet.UDP_HEADER_SIZE;
 
     private Selector selector;
@@ -74,18 +73,19 @@ public class UDPInput implements Runnable
                         keyIterator.remove();
 
                         ByteBuffer receiveBuffer = ByteBufferPool.acquire();
-                        // Leave space for the header
+                        // Lasciamo lo spazio corrisondente all'header (verrà compilato dopo)
                         receiveBuffer.position(HEADER_SIZE);
 
                         DatagramChannel inputChannel = (DatagramChannel) key.channel();
-                        // XXX: We should handle any IOExceptions here immediately,
-                        // but that probably won't happen with UDP
+
                         int readBytes = inputChannel.read(receiveBuffer);
 
                         Packet referencePacket = (Packet) key.attachment();
                         referencePacket.setIncomming(true);
-                        logManager.writePacketInfo(referencePacket);
+
                         referencePacket.updateUDPBuffer(receiveBuffer, readBytes);
+                        /* Si scrive sul log informazioni sulle risposte UDP
+                        logManager.writePacketInfo(referencePacket);*/
                         receiveBuffer.position(HEADER_SIZE + readBytes);
 
                         outputQueue.offer(receiveBuffer);

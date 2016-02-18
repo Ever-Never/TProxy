@@ -37,7 +37,7 @@ public class TCPOutput implements Runnable
 {
     private static final String TAG = TCPOutput.class.getSimpleName();
 
-    private LocalVPNService vpnService;
+    private LocalProxyServer vpnService;
     private ConcurrentLinkedQueue<Packet> inputQueue;
     private ConcurrentLinkedQueue<ByteBuffer> outputQueue;
     private Selector selector;
@@ -48,7 +48,7 @@ public class TCPOutput implements Runnable
     private LogManager logManager;
 
     public TCPOutput(ConcurrentLinkedQueue<Packet> inputQueue, ConcurrentLinkedQueue<ByteBuffer> outputQueue,
-                     Selector selector, LocalVPNService vpnService, LogManager _logManager)
+                     Selector selector, LocalProxyServer vpnService, LogManager _logManager)
     {
         this.inputQueue = inputQueue;
         this.outputQueue = outputQueue;
@@ -68,7 +68,7 @@ public class TCPOutput implements Runnable
             while (true)
             {
                 Packet currentPacket;
-                // TODO: Block when not connected
+
                 do
                 {
                     currentPacket = inputQueue.poll();
@@ -100,10 +100,10 @@ public class TCPOutput implements Runnable
                     initializeConnection(ipAndPort, destinationAddress, destinationPort,
                             currentPacket, tcpHeader, responseBuffer);
                 else if (tcpHeader.isSYN())
-                    /*We are sendoing a SYN for an already created connection, thus,
-                    * it's a duplicate SYN*/
+                     /*In questo caso stiamo inviando un SYN ma la connessione era già aperta*/
                     processDuplicateSYN(tcb, tcpHeader, responseBuffer);
                 else if (tcpHeader.isRST())
+                    /*Il client manda un RST*/
                     closeCleanly(tcb, responseBuffer);
                 else if (tcpHeader.isFIN())
                     processFIN(tcb, tcpHeader, responseBuffer);
@@ -130,7 +130,8 @@ public class TCPOutput implements Runnable
         }
     }
 
-    /**When we don't hace a corresponding TCB for the connection, we create a new one
+    /**Quando non abbiamo un'istanza di TCB corrispondente all'ip e porta correnti, allora se ne crea
+     * uno nuovo.
      * @param ipAndPort
      * @param destinationAddress
      * @param destinationPort
@@ -143,14 +144,14 @@ public class TCPOutput implements Runnable
                                       Packet currentPacket, TCPHeader tcpHeader, ByteBuffer responseBuffer)
             throws IOException
     {
-        /*We write to the log only the packets appartainig to a new TCP Session*/
+       /*Si è scelto di scrivere sul log soltanto i pacchetti correspondenti alle nuove sessioni.*/
         logManager.writePacketInfo(currentPacket);
         currentPacket.swapSourceAndDestination();
-        //we want to start a connection to a new server
+         /*Non sempre avremo un pacchetto SYN: si tenga in mente una connessione stabilita prima
+         dell'attivazione dell'interfaccia virtuale*/
         if (tcpHeader.isSYN())
         {
-            //for tcp connections we use SocketChannel
-            //TODO verify if it doesn't exists something more performant
+
             SocketChannel outputChannel = SocketChannel.open();
             outputChannel.configureBlocking(false);
             vpnService.protect(outputChannel.socket());
@@ -162,13 +163,15 @@ public class TCPOutput implements Runnable
             try
             {
                 outputChannel.connect(new InetSocketAddress(destinationAddress, destinationPort));
-                if (outputChannel.finishConnect())/*This method returns true if the connection is finished already
-                and returns false if the channel is non-blocking and the connection is not finished yet.*/
+                 /*finishConnect() può ritornare true o false a sceonda del
+                fatto che la connessione sia stata finalizzata o meno, e' il grande vantaggio delle socket non bloccanti*/
+                if (outputChannel.finishConnect())
                 {
-                    /*When we have done the handshake with the server, we must emulate it towards the client apps
-                    *that's why we now send the fink SYN/ACK towards the client app */
+
+                    /*
+                    * Abbiamo fatto l'handshake con il server remoto, ora lo dobbiamo emulare l'handshake
+                    * con le aaplicazioni del dispositivo, per questo inviamo il SYN/ACK*/
                     tcb.status = TCBStatus.SYN_RECEIVED;
-                    // TODO: Set MSS for receiving larger packets from the device
                     currentPacket.updateTCPBuffer(responseBuffer, (byte) (TCPHeader.SYN | TCPHeader.ACK),
                             tcb.mySequenceNum, tcb.myAcknowledgementNum, 0);
                     tcb.mySequenceNum++; // SYN counts as a byte
@@ -220,12 +223,18 @@ public class TCPOutput implements Runnable
 
             if (tcb.waitingForNetworkData)
             {
+                /*Anche se ha ricevuto un pacchetto FIN dal client,
+            il proxy server non manda il segnale di FIN/ACK
+            finchè non sia vuota la socket di entrata remota.
+            */
                 tcb.status = TCBStatus.CLOSE_WAIT;
                 referencePacket.updateTCPBuffer(responseBuffer, (byte) TCPHeader.ACK,
                         tcb.mySequenceNum, tcb.myAcknowledgementNum, 0);
             }
             else
             {
+                /*Il Proxy server ha finito di mandare pachetti al client e quindi lo autorizza  a
+                chiudere la connessione*/
                 tcb.status = TCBStatus.LAST_ACK;
                 referencePacket.updateTCPBuffer(responseBuffer, (byte) (TCPHeader.FIN | TCPHeader.ACK),
                         tcb.mySequenceNum, tcb.myAcknowledgementNum, 0);
@@ -251,11 +260,12 @@ public class TCPOutput implements Runnable
             SocketChannel outputChannel = tcb.channel;
             if (tcb.status == TCBStatus.SYN_RECEIVED)
             {
+                /*L'ack corrisponde all'ultimo messaggio dell'handshake*/
                 tcb.status = TCBStatus.ESTABLISHED;
 
                 selector.wakeup();
-                //After the device has sent  the Ack it is expecting to dialogue with server. so the interested operation
-                //of the channel must now be OP_READ
+                /*Una volta stabilita la conessione con il server, possiamo immettere OP_READ come  operazione
+                * di interesse associata alla chiave del canale */
                 tcb.selectionKey = outputChannel.register(selector, SelectionKey.OP_READ, tcb);
                 tcb.waitingForNetworkData = true;
             }
@@ -266,8 +276,11 @@ public class TCPOutput implements Runnable
                 return;
             }
 
-            if (payloadSize == 0) return; // Empty ACK, ignore
+            if (payloadSize == 0) return;
+            /* un ack vuoto, non dobbiamo modificare quindi i numeri di sequenza*/
 
+             /*se waitingForNetworkData == true, vuol dire che avevamo svuotato l'informazione in entrata dalla
+             * socket,  quindi dobbbiamo risettare l'operazione di interesse che si era messa a zero. */
             if (!tcb.waitingForNetworkData)
             {
                 selector.wakeup();
@@ -275,7 +288,7 @@ public class TCPOutput implements Runnable
                 tcb.waitingForNetworkData = true;
             }
 
-            // Forward to remote server
+            // Mandiamo  tutta l'informazione sul buffer verso l'informazione verso il server remoto:
             try
             {
                 while (payloadBuffer.hasRemaining())
@@ -288,7 +301,11 @@ public class TCPOutput implements Runnable
                 return;
             }
 
-            // TODO: We don't expect out-of-order packets, but verify
+            // TODO: Manca implementare il supporto a evenutali pacchetti OUT OF ORDER, anche se questi non ci saranno  (Proxy locale)
+            /*Abbiamo consegnato il pacchetto al server remoto. Ora però il reference packet del TCB
+             *deve essere adeguatamente settato (il suo header tcp dev'essere settato per mandare un'ack
+             *corretto al client. Si noti che mandiamo un ack vuoto al client. Questo potrebbe rappresentare una
+              * mancanza di trasparenza, dato che il server remoto ci potrebbe aver messo dell'informazione sul pacchetto. */
             tcb.myAcknowledgementNum = tcpHeader.sequenceNumber + payloadSize;
             tcb.theirAcknowledgementNum = tcpHeader.acknowledgementNumber;
             Packet referencePacket = tcb.referencePacket;

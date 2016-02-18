@@ -21,9 +21,8 @@ import java.nio.ByteBuffer;
 
 
 /**
- * Representation of an IP Packet
+ * Classe di riferimento per i datagrammi IP
  */
-// TODO: Reduce public mutability
 public class Packet
 {
     public static final int IP4_HEADER_SIZE = 20;
@@ -33,7 +32,6 @@ public class Packet
     public IP4Header ip4Header;
     public TCPHeader tcpHeader;
     public UDPHeader udpHeader;
-    public AppLayerPacket payload;
     public ByteBuffer backingBuffer;
 
 
@@ -41,6 +39,15 @@ public class Packet
     private boolean isUDP;
     private boolean isIncomming;
 
+    /** Il costruttore fa il parsing del buffer per istanziare
+     * le classi che rappresentano tutte le componenti del datagramma,
+     * quindi header e pacchetti di trasporto, anche questi con il loro
+     * header e payload.
+     * ATT. Il header di TCP ha lunghezza variabile per il fatto che ci sono
+     * le options TCP, che di solto vengon inviate durante l'handshake.
+     * @param buffer
+     * @throws UnknownHostException
+     */
     public Packet(ByteBuffer buffer) throws UnknownHostException {
         this.ip4Header = new IP4Header(buffer);
         if (this.ip4Header.protocol == IP4Header.TransportProtocol.TCP) {
@@ -51,8 +58,7 @@ public class Packet
             this.isUDP = true;
         }
         this.backingBuffer = buffer;
-        //Honorine & Cevallos: Layer 5 parsing:
-       // this.payload = new AppLayerPacket(this.backingBuffer);
+
     }
 
     @Override
@@ -387,6 +393,7 @@ public class Packet
         }
 
 
+
     }
 
     public static class TCPHeader
@@ -412,7 +419,9 @@ public class Packet
         public int checksum;
         public int urgentPointer;
 
-        public byte[] optionsAndPadding;
+        public boolean hasOptions;
+        public TcpOptions optionsAndPadding;
+
 
         private TCPHeader(ByteBuffer buffer)
         {
@@ -430,11 +439,15 @@ public class Packet
             this.checksum = BitUtils.getUnsignedShort(buffer.getShort());
             this.urgentPointer = BitUtils.getUnsignedShort(buffer.getShort());
 
-            int optionsLength = this.headerLength - TCP_HEADER_SIZE;
-            if (optionsLength > 0)
+            int optionsAndPaddingLength = this.headerLength - TCP_HEADER_SIZE;
+            if (optionsAndPaddingLength > 0)
             {
-                optionsAndPadding = new byte[optionsLength];
-                buffer.get(optionsAndPadding, 0, optionsLength);
+                try {
+                    hasOptions=true;
+                    optionsAndPadding = new TcpOptions(buffer, optionsAndPaddingLength);
+                } catch (Exception e) {
+                    e.printStackTrace();
+                }
             }
         }
 
@@ -508,6 +521,120 @@ public class Packet
             if (isURG()) sb.append(" URG");
             sb.append('}');
             return sb.toString();
+        }
+
+        /** Sottoclasse aggiunta per la gestione delle opzioni TCP.
+         * In particolare si gestisce la MSS con nui possiamo consegnare l'informazione
+         * all'applicazione.
+         * cfr.  http://jnetpcap.com/?q=node/401
+         */
+        public class TcpOptions
+        {
+            public static final int KIND_END = 0x00;
+            public static final int KIND_NOP = 0x01;
+            public static final int KIND_MSS = 0x02;
+            public static final int KIND_WINSCALE = 0x03;
+            public static final int KIND_SACK = 0x04;
+            public static final int KIND_TS = 0x08;
+
+            public static final int KIND_MSS_LENGTH = 4;
+            public static final int KIND_WINSCALE_LENGTH = 3;
+            public static final int KIND_SACK_LENGTH = 2;
+            public static final int KIND_TS_LENGTH = 10;
+
+            public static final int OPTION_HEADER_LENGTH = 2;
+
+            public static final String BAD_FORMAT = "bad tcp option format";
+
+            public int size = 0;
+            public int offset = TCP_HEADER_SIZE;
+
+            public boolean hasMss = false;
+            public boolean hasWinScale = false;
+            public boolean hasSack = false;
+            public boolean hasTs = false;
+
+            public int mss = 0;
+            public int winScale = 0;
+            public boolean sack = false;
+            public long tsVal = 0;
+            public long tsEcr = 0;
+
+            public TcpOptions(ByteBuffer buffer, int length) throws Exception
+            {
+                this.size = length;
+
+                while(buffer.position() <  IP4_HEADER_SIZE + TCP_HEADER_SIZE + size)
+                {
+                    switch( BitUtils.getUnsignedByte(buffer.get()))
+                    {
+                        case KIND_END:
+                            return;
+
+                        case KIND_NOP:
+                            break;
+
+                        case KIND_MSS:
+                            parseMss(buffer);
+                            break;
+
+                        case KIND_WINSCALE:
+                            parseWinScale(buffer);
+                            break;
+
+                        case KIND_SACK:
+                            parseSack(buffer);
+                            break;
+
+                        case KIND_TS:
+                            parseTs(buffer);
+                            break;
+
+                        default:
+                            return;
+                    }
+                }
+            }
+
+            private void parseMss(ByteBuffer buffer) throws Exception
+            {
+                assertLengthFieldOK(KIND_MSS_LENGTH, buffer);
+                this.hasMss = true;
+                this.mss = BitUtils.getUnsignedShort(buffer.getShort());
+
+            }
+
+            private void parseWinScale(ByteBuffer buffer) throws Exception
+            {
+                assertLengthFieldOK(KIND_WINSCALE_LENGTH, buffer);
+                this.hasWinScale = true;
+                this.winScale = BitUtils.getUnsignedByte(buffer.get());
+
+            }
+
+            private void parseSack(ByteBuffer buffer) throws Exception
+            {
+                assertLengthFieldOK(KIND_SACK_LENGTH, buffer);
+                this.hasSack = true;
+                this.sack = true;
+
+            }
+
+            private void parseTs(ByteBuffer buffer) throws Exception
+            {
+                assertLengthFieldOK(KIND_TS_LENGTH, buffer);
+                this.hasTs = true;
+                this.tsVal = BitUtils.getUnsignedInt(buffer.getInt());
+                this.tsEcr = BitUtils.getUnsignedInt(buffer.getInt());
+
+            }
+
+            private void assertLengthFieldOK(int correctValue, ByteBuffer buffer) throws Exception
+            {
+                if(correctValue != BitUtils.getUnsignedByte(buffer.get()))
+                    throw new Exception(BAD_FORMAT);
+            }
+
         }
     }
 

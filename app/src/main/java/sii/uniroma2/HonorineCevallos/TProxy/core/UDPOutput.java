@@ -41,7 +41,7 @@ public class UDPOutput implements Runnable
 {
     private static final String TAG = UDPOutput.class.getSimpleName();
 
-    private LocalVPNService vpnService;
+    private LocalProxyServer vpnService;
     private ConcurrentLinkedQueue<Packet> inputQueue;
     private LogManager logManager;
     private Selector selector;
@@ -56,7 +56,7 @@ public class UDPOutput implements Runnable
                 }
             });
 
-    public UDPOutput(ConcurrentLinkedQueue<Packet> inputQueue, Selector selector, LocalVPNService vpnService, LogManager _logManager)
+    public UDPOutput(ConcurrentLinkedQueue<Packet> inputQueue, Selector selector, LocalProxyServer vpnService, LogManager _logManager)
     {
         this.inputQueue = inputQueue;
         this.selector = selector;
@@ -76,10 +76,10 @@ public class UDPOutput implements Runnable
             while (true)
             {
                 Packet currentPacket;
-                // TODO: Block when not connected
+                /*Se il modulo dovrebbe venir usato per prolongamenti di tempo grandi, allora sarebbe
+                * utile bloccare i thread quando non ci sia connessione internet attiva. */
                 do
                 {
-                    //I can do the poll because in VPNRunnable, inside the reception thread, i have done the offer().
                     currentPacket = inputQueue.poll();
                     if (currentPacket != null){
                         currentPacket.setIncomming(false);
@@ -94,23 +94,22 @@ public class UDPOutput implements Runnable
                 InetAddress destinationAddress = currentPacket.ip4Header.destinationAddress;
                 int destinationPort = currentPacket.udpHeader.destinationPort;
                 int sourcePort = currentPacket.udpHeader.sourcePort;
-                /*We are about to send the intercepted packet to the original destination
-                * First, we have intercepted and trapped it from the vpnInterface with the VPNRunnable Thread.
+                /*Stiamo per inviare il pacchetto intercettato alla sua destinazione originale.
                */
                 String ipAndPort = destinationAddress.getHostAddress() + ":" + destinationPort + ":" + sourcePort;
-                //we try to get the correspondent channel from the channel cache.
+                /*Prendiamo il riferimento al canale corrispondente, se esiste,  dalla cache dei canali.*/
                 DatagramChannel outputChannel = channelCache.get(ipAndPort);
-                //If there is no such channel, then we have to open a new one.
+                /*SE non esiste tale canale, ne dobbiamo creare uno nuovo*/
                 if (outputChannel == null) {
 
-                    /*We write to the log only the packets appartaining to a new UDP session*/
+                    /*Si è scelto di scrivere sul log soltanto i pacchetti correspondenti alle nuove sessioni.*/
                     logManager.writePacketInfo(currentPacket);
 
                     outputChannel = DatagramChannel.open();
-                    /* Workaround for bug 64819 ( https://code.google.com/p/android/issues/detail?id=64819)
-                    The source address of the current channel must be the current real ip address,
-                    in order to be received by the real
-                    interface of the device.
+                    /* modifica proposta da imhotepisinvisible
+                     ( https://code.google.com/p/android/issues/detail?id=64819)
+                    Le risposte DNS non arrivano al dispositivo se non viene prima fatto il bind ESPLICITO
+                    della datagramsocket con l'indirizzo ip corrente della scheda di rete vera del dispositivo.
                     * */
                     InetSocketAddress sa = null;
                     ConnectivityHelper ah = GlobalAppState.connectivityHelper;
@@ -140,8 +139,7 @@ public class UDPOutput implements Runnable
                         continue;
                     }
 
-                    // For simplicity, we use the same thread for both reading and
-                    // writing. Here we put the tunnel into non-blocking mode.
+                    /*Si noti anche che un channel viene ustao sia per scrivere che per leggere*/
                     outputChannel.configureBlocking(false);
                     currentPacket.swapSourceAndDestination();
 

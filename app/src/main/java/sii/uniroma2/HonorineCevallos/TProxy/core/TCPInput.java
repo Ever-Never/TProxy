@@ -34,7 +34,6 @@ import sii.uniroma2.HonorineCevallos.TProxy.logManaging.LogManager;
 public class TCPInput implements Runnable
 {
     private static final String TAG = TCPInput.class.getSimpleName();
-    //TODO add support for ipv6
     private static final int HEADER_SIZE = Packet.IP4_HEADER_SIZE + Packet.TCP_HEADER_SIZE;
 
     private ConcurrentLinkedQueue<ByteBuffer> outputQueue;
@@ -73,7 +72,7 @@ public class TCPInput implements Runnable
                     SelectionKey key = keyIterator.next();
                     if (key.isValid())
                     {
-                        if (key.isConnectable())
+                        if (key.isConnectable())/*Per le socket che non hanno finito di fare la connect*/
                             processConnect(key, keyIterator);
                         else if (key.isReadable())
                             processInput(key, keyIterator);
@@ -91,8 +90,10 @@ public class TCPInput implements Runnable
         }
     }
 
-    /**We call this method when we have a channel whose SelectionKey has been set to the operation Conect,
-     * this happens when we created a socket for connecting with the server and we did the connect, but this connect hasn't finished yet...
+    /**
+     * Invocchiamo questo metodo quando abbiamo un canale la cui operazione per cui è pronto è la connect()
+     * Questo succede quando creiamo un socket verso un server remoto e invocchiamo la connect() ma l'invocazione
+     * della funzione finishConnect() non ha avuto esito positivo.
      *
      * @param key
      * @param keyIterator
@@ -104,21 +105,23 @@ public class TCPInput implements Runnable
 
         try
         {
-            //There must be passed some time since the finishConnect()
-            // call returned false last time we have invoked it on the  TCPOUtput Thread.
+           /*è passato del tempo dall'ultima invocazione della finischConnect,
+            * diamo un'altra opportunità alla connessione per stabilirsi*/
             if (tcb.channel.finishConnect())
             {
                 keyIterator.remove();
                 tcb.status = TCB.TCBStatus.SYN_RECEIVED;
 
-                // TODO: Set MSS for receiving larger packets from the device
-
+                /*TODO: si dovrebbe esperimentare di più per scoprire il valore ideale di MSS del proxy
+                * In tale esperimentazione bisogna tener conto sia dei problemi riguardanti la comunicazione
+                * proxy -> App, sia i problemi ricguardanti la comunicazione proxy -> Remote Server*/
                 ByteBuffer responseBuffer = ByteBufferPool.acquire();
                 //sending a fake SYN/ACK to the client app...
                 referencePacket.updateTCPBuffer(responseBuffer, (byte) (Packet.TCPHeader.SYN | Packet.TCPHeader.ACK),
                         tcb.mySequenceNum, tcb.myAcknowledgementNum, 0);
 
                 referencePacket.setIncomming(true);
+                /*Scriviamo sul log informazione relative alla sessione aperta*/
                 logManager.writePacketInfo(referencePacket);
                 outputQueue.offer(responseBuffer);
 
@@ -150,8 +153,8 @@ public class TCPInput implements Runnable
         TCB tcb = (TCB) key.attachment();
         synchronized (tcb)
         {
+            Log.d(TAG,"pack_In");
             Packet referencePacket = tcb.referencePacket;
-            logManager.writePacketInfo(referencePacket);
             SocketChannel inputChannel = (SocketChannel) key.channel();
             int readBytes;
             try
@@ -185,7 +188,7 @@ public class TCPInput implements Runnable
             }
             else
             {
-                // TODO: We should ideally be splitting segments by MTU/MSS, but this seems to work without
+
                 referencePacket.updateTCPBuffer(receiveBuffer, (byte) (Packet.TCPHeader.PSH | Packet.TCPHeader.ACK),
                         tcb.mySequenceNum, tcb.myAcknowledgementNum, readBytes);
                 tcb.mySequenceNum += readBytes; // Next sequence number
